@@ -5,10 +5,8 @@ import logging
 import time
 import sys
 
-
-from file_protocol import  FileProtocol
+from file_protocol import FileProtocol
 fp = FileProtocol()
-
 
 class ProcessTheClient(threading.Thread):
     def __init__(self, connection, address):
@@ -18,16 +16,53 @@ class ProcessTheClient(threading.Thread):
 
     def run(self):
         while True:
-            data = self.connection.recv(32)
-            if data:
-                d = data.decode()
-                hasil = fp.proses_string(d)
-                hasil=hasil+"\r\n\r\n"
-                self.connection.sendall(hasil.encode())
-            else:
+            try:
+                # For large uploads, we need to receive all data
+                data_received = ""
+                buffer_size = 8192  # Larger buffer
+                
+                # First, try to determine if this is an upload by reading initial data
+                initial_data = self.connection.recv(buffer_size)
+                if not initial_data:
+                    break
+                
+                data_received += initial_data.decode()
+                
+                # If it's an UPLOAD command, we need to receive all data
+                if data_received.upper().startswith('UPLOAD'):
+                    # Keep receiving until we have complete data
+                    # We'll use a simple approach: keep receiving until no more data comes
+                    self.connection.settimeout(1.0)  # 1 second timeout
+                    
+                    while True:
+                        try:
+                            more_data = self.connection.recv(buffer_size)
+                            if more_data:
+                                data_received += more_data.decode()
+                            else:
+                                break
+                        except socket.timeout:
+                            # No more data received within timeout
+                            break
+                        except Exception as e:
+                            logging.error(f"Error receiving more data: {e}")
+                            break
+                    
+                    self.connection.settimeout(None)  # Reset timeout
+                
+                if data_received:
+                    logging.warning(f"Processing command from {self.address}, data length: {len(data_received)}")
+                    hasil = fp.proses_string(data_received.strip())
+                    hasil = hasil + "\r\n\r\n"
+                    self.connection.sendall(hasil.encode())
+                else:
+                    break
+                    
+            except Exception as e:
+                logging.error(f"Error processing client {self.address}: {e}")
                 break
+                
         self.connection.close()
-
 
 class Server(threading.Thread):
     def __init__(self,ipaddress='0.0.0.0',port=8889):
@@ -49,12 +84,12 @@ class Server(threading.Thread):
             clt.start()
             self.the_clients.append(clt)
 
-
 def main():
+    # Setup logging
+    logging.basicConfig(level=logging.WARNING, format='%(asctime)s - %(levelname)s - %(message)s')
+    
     svr = Server(ipaddress='0.0.0.0',port=6666)
     svr.start()
 
-
 if __name__ == "__main__":
     main()
-
