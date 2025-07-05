@@ -182,26 +182,5 @@ if __name__=='__main__':
     # Set server address untuk testing local
     server_address=('127.0.0.1',6666)
     
-    print("=== File Server Client ===")
-    print("1. Untuk testing otomatis, uncomment bagian test di bawah")
-    print("2. Untuk interactive mode, jalankan interactive_client()")
-    print()
-    
-    # Uncomment untuk testing otomatis
-    
-    # Test dengan file kecil dulu
-    test_content = "Hello, this is a test file for upload operation!"
-    with open("test_small.txt", "w") as f:
-        f.write(test_content)
-    
-    print("Testing with small file:")
-    remote_upload("test_small.txt")
-    remote_list()
-    remote_delete("test_small.txt")
-    
-    if os.path.exists("test_small.txt"):
-        os.remove("test_small.txt")
-    
-    
     # Interactive mode
     interactive_client()
